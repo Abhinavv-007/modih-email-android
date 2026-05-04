@@ -97,7 +97,14 @@ fun GoldButton(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
-    val elevation by animateDpAsState(if (isPressed) 2.dp else 8.dp, label = "elevation")
+    // v1.3: tween(120) instead of the default ~300ms spring. Press
+    // feedback now lands well inside one frame interval, so the gold
+    // button feels tactile instead of laggy.
+    val elevation by animateDpAsState(
+        targetValue = if (isPressed) 2.dp else 8.dp,
+        animationSpec = tween(durationMillis = 120),
+        label = "elevation"
+    )
 
     Button(
         onClick = onClick,

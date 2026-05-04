@@ -4,8 +4,9 @@ import androidx.compose.ui.graphics.Color
 
 // Core palette — matches web CSS variables
 val BgPrimary = Color(0xFF0A0A0F)
-val BgCard = Color(0xFF14100A)
-val BgCardLight = Color(0xFF1A1510)
+// v1.3: lifted one shade so cards visibly separate from BgPrimary on AMOLED.
+val BgCard = Color(0xFF171210)
+val BgCardLight = Color(0xFF1F1814)
 val BgOverlay = Color(0xC705040A) // rgba(5,4,10,0.78)
 
 // Accent — warm gold
@@ -36,8 +37,8 @@ val GlassBorder = Color(0x17FFFFFF)
 val GlassBorderHover = Color(0x28FFFFFF)
 val GlassBg = Color(0xD90E0A07) // rgba(14,10,7,0.85)
 val GlassBgSubtle = Color(0x0FFFFFFF)
-val GlassBgCard = Color(0x14FFFFFF) // ~8% white
+val GlassBgCard = Color(0x1AFFFFFF) // v1.3: ~10% white (was 8%) — better outdoor contrast
 
 // Misc
-val DividerColor = Color(0x1AFFFFFF)
+val DividerColor = Color(0x22FFFFFF) // v1.3: ~13% (was 10%) — section breaks no longer disappear
 val ShimmerColor = Color(0x0DFFFFFF)

@@ -84,10 +84,13 @@ fun ModihNavHost(
         navController = navController,
         startDestination = Screen.Home.route,
         modifier = modifier,
-        enterTransition = { fadeIn(animationSpec = tween(300)) + slideInHorizontally(initialOffsetX = { 100 }) },
-        exitTransition = { fadeOut(animationSpec = tween(200)) },
-        popEnterTransition = { fadeIn(animationSpec = tween(300)) + slideInHorizontally(initialOffsetX = { -100 }) },
-        popExitTransition = { fadeOut(animationSpec = tween(200)) }
+        // v1.3: snappier nav. Fade ~180ms in / ~120ms out, with a tiny
+        // horizontal nudge instead of a full 100px slide. Material's
+        // "responsive" guidance is 150-200ms for screen transitions.
+        enterTransition = { fadeIn(animationSpec = tween(180)) + slideInHorizontally(initialOffsetX = { it / 12 }) },
+        exitTransition = { fadeOut(animationSpec = tween(120)) },
+        popEnterTransition = { fadeIn(animationSpec = tween(180)) + slideInHorizontally(initialOffsetX = { -it / 12 }) },
+        popExitTransition = { fadeOut(animationSpec = tween(120)) }
     ) {
         composable(Screen.Home.route) { HomeScreen(navController) }
         composable(Screen.Dashboard.route) { DashboardScreen(navController) }
