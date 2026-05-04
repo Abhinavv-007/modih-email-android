@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "333202273259",
+    "project_id": "modih-mail",
+    "storage_bucket": "modih-mail.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:333202273259:android:2b44519dbf48040dd81fae",
+        "android_client_info": {
+          "package_name": "com.modih.mail"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "333202273259-0ddr2592n1oupjkn8afjdu8m1s0da3in.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB0jcpbh3SnQCuA-InkwMJWuwEK5sQgveQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "333202273259-0ddr2592n1oupjkn8afjdu8m1s0da3in.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

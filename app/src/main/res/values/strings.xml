@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Modih Mail</string>
+    <string name="tab_home">Home</string>
+    <string name="tab_inbox">Inbox</string>
+    <string name="tab_pricing">Plans</string>
+    <string name="tab_settings">Settings</string>
+</resources>

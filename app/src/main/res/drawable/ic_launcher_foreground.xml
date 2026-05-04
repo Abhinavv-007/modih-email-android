@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Envelope icon centered in adaptive icon safe zone -->
+    <group
+        android:translateX="27"
+        android:translateY="27">
+        <!-- Envelope body -->
+        <path
+            android:fillColor="#D4A76A"
+            android:pathData="M4,10 C4,8.9 4.9,8 6,8 L48,8 C49.1,8 50,8.9 50,10 L50,42 C50,43.1 49.1,44 48,44 L6,44 C4.9,44 4,43.1 4,42 Z" />
+        <!-- Envelope flap -->
+        <path
+            android:fillColor="#C8956A"
+            android:pathData="M4,10 L27,28 L50,10" />
+        <!-- Shine line -->
+        <path
+            android:fillColor="#F5E6C8"
+            android:fillAlpha="0.3"
+            android:pathData="M8,14 L22,26"
+            android:strokeWidth="2"
+            android:strokeColor="#F5E6C8" />
+    </group>
+</vector>
