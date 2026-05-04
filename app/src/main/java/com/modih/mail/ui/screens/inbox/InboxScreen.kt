@@ -3,6 +3,8 @@ package com.modih.mail.ui.screens.inbox
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -38,6 +40,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.modih.mail.data.model.*
 import com.modih.mail.data.local.MessageStore
 import com.modih.mail.data.local.PreferencesManager
+import com.modih.mail.data.network.CaptchaRequiredException
 import com.modih.mail.data.repository.MailRepository
 import com.modih.mail.ui.components.*
 import com.modih.mail.ui.navigation.Screen
@@ -62,6 +65,7 @@ fun InboxScreen(navController: NavController) {
     var isCreating by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var captchaRequired by remember { mutableStateOf<CaptchaRequiredException?>(null) }
     var customPrefix by remember { mutableStateOf("") }
     var showMailView by remember { mutableStateOf(false) }
     var countdown by remember { mutableStateOf("") }
@@ -126,7 +130,13 @@ fun InboxScreen(navController: NavController) {
                         prefs.saveCurrentInbox(inbox.id, inbox.email, inbox.ownerToken, inbox.createdAt, inbox.expiresAt)
                         showMailView = true
                     }
-                    .onFailure { error = it.message }
+                    .onFailure { failure ->
+                        if (failure is CaptchaRequiredException) {
+                            captchaRequired = failure
+                        } else {
+                            error = failure.message
+                        }
+                    }
             } catch (e: Exception) {
                 error = e.message ?: "Network error"
             }
@@ -304,6 +314,60 @@ fun InboxScreen(navController: NavController) {
                             modifier = Modifier.weight(1f),
                             isLoading = isCreating
                         )
+                    }
+                }
+
+                // CAPTCHA required — once free-tier crosses the daily threshold,
+                // the server demands a Turnstile token. We don't have a native
+                // Turnstile widget yet, so route the user to the web flow.
+                AnimatedVisibility(visible = captchaRequired != null) {
+                    captchaRequired?.let { captcha ->
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 12.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            color = AccentGold.copy(alpha = 0.10f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, AccentGold.copy(alpha = 0.35f))
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                Text(
+                                    "Verification needed",
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = AccentGoldLight,
+                                    fontSize = 14.sp
+                                )
+                                Spacer(Modifier.height(6.dp))
+                                val usage = if (captcha.maxCreations > 0)
+                                    "You've used ${captcha.creationsToday} of ${captcha.maxCreations} free inboxes today. "
+                                else ""
+                                Text(
+                                    usage + "Cloudflare needs a one-time human-check before the next free inbox. Complete it on the web, then come back and tap Random again.",
+                                    color = TextMuted,
+                                    fontSize = 12.sp,
+                                    lineHeight = 18.sp
+                                )
+                                Spacer(Modifier.height(10.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    GoldButton(
+                                        text = "Open verification",
+                                        onClick = {
+                                            val intent = Intent(
+                                                Intent.ACTION_VIEW,
+                                                Uri.parse("https://modih.in/?utm_source=android&utm_medium=captcha")
+                                            )
+                                            runCatching { context.startActivity(intent) }
+                                        },
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    GhostButton(
+                                        text = "Dismiss",
+                                        onClick = { captchaRequired = null },
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
 

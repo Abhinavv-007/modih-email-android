@@ -13,8 +13,8 @@ android {
         applicationId = "com.modih.mail"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 3
+        versionName = "1.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -65,6 +65,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -106,8 +107,12 @@ dependencies {
     // JSON
     implementation("org.json:json:20231013")
 
-    // DataStore for local preferences
+    // DataStore for local preferences (non-sensitive values)
     implementation("androidx.datastore:datastore-preferences:1.1.1")
+
+    // EncryptedSharedPreferences for owner tokens / admin secret. Backed by
+    // AndroidKeyStore — see SecureStore.kt for the rationale.
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
     // Splash screen
     implementation("androidx.core:core-splashscreen:1.0.1")

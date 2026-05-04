@@ -3,6 +3,7 @@ package com.modih.mail.ui.screens.inbox
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
@@ -19,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -53,6 +55,9 @@ fun MessageDetailScreen(navController: NavController, messageId: String) {
     val message = remember(messages, messageId) { MessageStore.get(messageId) }
     var isDeleting by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    // Off by default per the handoff doc — "Don't auto-load remote images.
+    // Email pixels are tracking. Show a 'Load images' button."
+    var loadImages by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -270,18 +275,37 @@ fun MessageDetailScreen(navController: NavController, messageId: String) {
                     factory = { ctx ->
                         WebView(ctx).apply {
                             setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                            // Hardened per the security handoff:
+                            //  - JS disabled to defeat any sanitiser-bypass
+                            //    payload that the server may have missed.
+                            //  - blockNetworkLoads + loadsImagesAutomatically
+                            //    off so tracking pixels can't beacon out.
+                            //  - mixedContent NEVER_ALLOW so any sneaky http://
+                            //    URL embedded in the body is dropped.
+                            //  - DOM storage off so a stale message can't
+                            //    leave traces between opens.
+                            //  - File / content URIs blocked so a body can't
+                            //    reach into the device's filesystem.
                             settings.javaScriptEnabled = false
-                            settings.loadWithOverviewMode = true
-                            settings.useWideViewPort = true
-                            settings.blockNetworkLoads = false
+                            settings.domStorageEnabled = false
                             settings.allowContentAccess = false
                             settings.allowFileAccess = false
+                            settings.loadWithOverviewMode = true
+                            settings.useWideViewPort = true
+                            settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+                            settings.blockNetworkLoads = !loadImages
+                            settings.loadsImagesAutomatically = loadImages
                             webViewClient = WebViewClient()
-                            loadDataWithBaseURL(null, htmlContent, "text/html", "UTF-8", null)
+                            // "about:blank" base URL means relative links in
+                            // the body resolve to nothing rather than to the
+                            // app's package — defence in depth.
+                            loadDataWithBaseURL("about:blank", htmlContent, "text/html", "UTF-8", null)
                         }
                     },
                     update = { webView ->
-                        webView.loadDataWithBaseURL(null, htmlContent, "text/html", "UTF-8", null)
+                        webView.settings.blockNetworkLoads = !loadImages
+                        webView.settings.loadsImagesAutomatically = loadImages
+                        webView.loadDataWithBaseURL("about:blank", htmlContent, "text/html", "UTF-8", null)
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -290,6 +314,18 @@ fun MessageDetailScreen(navController: NavController, messageId: String) {
             }
 
             Spacer(Modifier.height(16.dp))
+
+            // Off-by-default "Load images" toggle. Most marketing email is
+            // tracking pixels; we let the user opt in per message.
+            if (!loadImages) {
+                GhostButton(
+                    text = "Load images",
+                    onClick = { loadImages = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    icon = Icons.Outlined.Image
+                )
+                Spacer(Modifier.height(8.dp))
+            }
 
             // Copy plain body button — matches the `Copy text` action on web.
             GhostButton(
