@@ -186,6 +186,18 @@ fun SettingsScreen(navController: NavController) {
             subtitle = "Version, credits, links",
             onClick = { navController.navigate(Screen.About.route) }
         )
+        SettingsItem(
+            icon = Icons.Outlined.Email,
+            title = "Contact Support",
+            subtitle = "We reply within 24 hours",
+            onClick = { navController.navigate(Screen.Support.route) }
+        )
+        SettingsItem(
+            icon = Icons.Outlined.AdminPanelSettings,
+            title = "Admin",
+            subtitle = "Restricted — secret required",
+            onClick = { navController.navigate(Screen.AdminLogin.route) }
+        )
 
         Spacer(Modifier.height(28.dp))
 

@@ -36,8 +36,9 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.google.firebase.auth.FirebaseAuth
 import com.modih.mail.data.model.*
-import com.modih.mail.data.repository.MailRepository
+import com.modih.mail.data.local.MessageStore
 import com.modih.mail.data.local.PreferencesManager
+import com.modih.mail.data.repository.MailRepository
 import com.modih.mail.ui.components.*
 import com.modih.mail.ui.navigation.Screen
 import com.modih.mail.ui.theme.*
@@ -100,7 +101,10 @@ fun InboxScreen(navController: NavController) {
                 try {
                     val token = auth.currentUser?.getIdToken(false)?.await()?.token
                     repo.getMessages(currentInbox!!.id, currentInbox!!.ownerToken, token)
-                        .onSuccess { messages = it }
+                        .onSuccess { page ->
+                            messages = page.messages
+                            MessageStore.publish(page.messages)
+                        }
                 } catch (_: Exception) {}
             }
         }
@@ -118,6 +122,7 @@ fun InboxScreen(navController: NavController) {
                     .onSuccess { inbox ->
                         currentInbox = inbox
                         messages = emptyList()
+                        MessageStore.clear()
                         prefs.saveCurrentInbox(inbox.id, inbox.email, inbox.ownerToken, inbox.createdAt, inbox.expiresAt)
                         showMailView = true
                     }
@@ -144,6 +149,7 @@ fun InboxScreen(navController: NavController) {
                 repo.deleteInbox(inbox.id, inbox.ownerToken, authToken)
                 currentInbox = null
                 messages = emptyList()
+                MessageStore.clear()
                 showMailView = false
                 prefs.clearCurrentInbox()
             }
@@ -156,7 +162,10 @@ fun InboxScreen(navController: NavController) {
             currentInbox?.let { inbox ->
                 val authToken = auth.currentUser?.getIdToken(false)?.await()?.token
                 repo.getMessages(inbox.id, inbox.ownerToken, authToken)
-                    .onSuccess { messages = it }
+                    .onSuccess { page ->
+                        messages = page.messages
+                        MessageStore.publish(page.messages)
+                    }
                     .onFailure { error = it.message }
             }
             isLoading = false
@@ -482,7 +491,7 @@ private fun MessageCard(message: MailMessage, onClick: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    message.from,
+                    message.displaySender,
                     fontWeight = FontWeight.SemiBold, fontSize = 14.sp,
                     color = TextPrimary, maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

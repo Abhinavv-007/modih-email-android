@@ -6,6 +6,10 @@ import android.content.Context
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -25,33 +29,30 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.navigation.NavController
-import com.modih.mail.data.model.MailMessage
+import com.google.firebase.auth.FirebaseAuth
+import com.modih.mail.data.local.MessageStore
+import com.modih.mail.data.local.PreferencesManager
+import com.modih.mail.data.repository.MailRepository
 import com.modih.mail.ui.components.*
 import com.modih.mail.ui.theme.*
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun MessageDetailScreen(navController: NavController, messageId: String) {
-    // In a real app, this would fetch from ViewModel/repo.
-    // For now, we show a placeholder that works with passed data.
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val auth = remember { FirebaseAuth.getInstance() }
+    val prefs = remember { PreferencesManager(context.applicationContext) }
+    val repo = remember { MailRepository() }
     val dateFormat = remember { SimpleDateFormat("EEEE, MMM dd yyyy 'at' HH:mm", Locale.getDefault()) }
-
-    // Placeholder message — real implementation would use shared ViewModel
-    var message by remember {
-        mutableStateOf(
-            MailMessage(
-                id = messageId,
-                inboxId = "",
-                from = "Loading...",
-                subject = "Loading...",
-                bodyHtml = "<p style='color:#888;font-family:sans-serif;'>Loading message content...</p>",
-                bodyText = "Loading...",
-                receivedAt = System.currentTimeMillis() / 1000
-            )
-        )
-    }
+    val messages by MessageStore.messages.collectAsState()
+    val message = remember(messages, messageId) { MessageStore.get(messageId) }
+    var isDeleting by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = Modifier
@@ -78,16 +79,89 @@ fun MessageDetailScreen(navController: NavController, messageId: String) {
                     fontSize = 14.sp, color = TextMuted, fontFamily = Inter,
                     modifier = Modifier.weight(1f)
                 )
-                IconButton(onClick = {
-                    // Delete message
-                    navController.popBackStack()
-                }) {
+                IconButton(
+                    enabled = !isDeleting && message != null,
+                    onClick = {
+                        val msg = message ?: return@IconButton
+                        scope.launch {
+                            val savedInbox = prefs.currentInboxOnce()
+                            val ownerToken = savedInbox?.ownerToken.orEmpty()
+                            val inboxId = savedInbox?.id.orEmpty().ifBlank { msg.inboxId }
+                            if (ownerToken.isBlank() || inboxId.isBlank()) {
+                                error = "Inbox session missing — open the inbox again."
+                                return@launch
+                            }
+                            isDeleting = true
+                            val authToken = auth.currentUser?.getIdToken(false)?.await()?.token
+                            repo.deleteMessage(inboxId, msg.id, ownerToken, authToken)
+                                .onSuccess {
+                                    MessageStore.remove(msg.id)
+                                    navController.popBackStack()
+                                }
+                                .onFailure { error = it.message ?: "Delete failed" }
+                            isDeleting = false
+                        }
+                    }
+                ) {
                     Icon(Icons.Outlined.Delete, "Delete", tint = Danger, modifier = Modifier.size(20.dp))
                 }
             }
         }
 
         HorizontalDivider(color = DividerColor, thickness = 0.5.dp)
+
+        if (message == null) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text("✉️", fontSize = 56.sp)
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    "Message no longer available",
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 18.sp,
+                    color = TextPrimary
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "It may have been deleted or your session timed out. Pull-to-refresh the inbox to reload.",
+                    fontSize = 13.sp,
+                    color = TextMuted
+                )
+                Spacer(Modifier.height(24.dp))
+                GoldButton(
+                    text = "Back to inbox",
+                    onClick = { navController.popBackStack() },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            return
+        }
+
+        AnimatedVisibility(
+            visible = error != null,
+            enter = fadeIn() + slideInVertically(),
+            exit = fadeOut()
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                shape = RoundedCornerShape(12.dp),
+                color = Danger.copy(alpha = 0.12f)
+            ) {
+                Text(
+                    error.orEmpty(),
+                    color = Danger,
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(12.dp)
+                )
+            }
+        }
 
         Column(
             modifier = Modifier
@@ -108,7 +182,7 @@ fun MessageDetailScreen(navController: NavController, messageId: String) {
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        "From: ${message.from}",
+                        "From: ${message.displaySender}",
                         fontSize = 13.sp, color = TextMuted, fontFamily = Inter,
                         modifier = Modifier.weight(1f)
                     )
@@ -118,7 +192,6 @@ fun MessageDetailScreen(navController: NavController, messageId: String) {
                     )
                 }
 
-                // OTP Detection
                 if (!message.otp.isNullOrBlank()) {
                     Spacer(Modifier.height(16.dp))
                     Surface(
@@ -136,7 +209,7 @@ fun MessageDetailScreen(navController: NavController, messageId: String) {
                                 Text("OTP Detected:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Success)
                                 Spacer(Modifier.height(2.dp))
                                 Text(
-                                    message.otp!!,
+                                    message.otp,
                                     fontSize = 28.sp, fontWeight = FontWeight.Bold,
                                     color = Success, letterSpacing = 4.sp
                                 )
@@ -155,9 +228,13 @@ fun MessageDetailScreen(navController: NavController, messageId: String) {
 
             Spacer(Modifier.height(16.dp))
 
-            // Email body — rendered in WebView
+            // Email body — rendered in a sandboxed WebView (JS off, no network).
             GlassCard(modifier = Modifier.fillMaxWidth()) {
-                val htmlContent = remember(message.bodyHtml) {
+                val htmlContent = remember(message.bodyHtml, message.bodyText) {
+                    val rawBody = message.bodyHtml.takeIf { it.isNotBlank() }
+                        ?: "<pre style='font-family:monospace;white-space:pre-wrap;'>" +
+                            android.text.Html.escapeHtml(message.bodyText.ifBlank { "(empty body)" }) +
+                            "</pre>"
                     """
                     <html>
                     <head>
@@ -184,7 +261,7 @@ fun MessageDetailScreen(navController: NavController, messageId: String) {
                             }
                         </style>
                     </head>
-                    <body>${message.bodyHtml}</body>
+                    <body>$rawBody</body>
                     </html>
                     """.trimIndent()
                 }
@@ -196,9 +273,15 @@ fun MessageDetailScreen(navController: NavController, messageId: String) {
                             settings.javaScriptEnabled = false
                             settings.loadWithOverviewMode = true
                             settings.useWideViewPort = true
+                            settings.blockNetworkLoads = false
+                            settings.allowContentAccess = false
+                            settings.allowFileAccess = false
                             webViewClient = WebViewClient()
                             loadDataWithBaseURL(null, htmlContent, "text/html", "UTF-8", null)
                         }
+                    },
+                    update = { webView ->
+                        webView.loadDataWithBaseURL(null, htmlContent, "text/html", "UTF-8", null)
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -208,13 +291,48 @@ fun MessageDetailScreen(navController: NavController, messageId: String) {
 
             Spacer(Modifier.height(16.dp))
 
+            // Copy plain body button — matches the `Copy text` action on web.
+            GhostButton(
+                text = "Copy email body",
+                onClick = {
+                    val plain = message.bodyText.ifBlank { android.text.Html.fromHtml(message.bodyHtml, 0).toString() }
+                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    clipboard.setPrimaryClip(ClipData.newPlainText("email", plain))
+                    Toast.makeText(context, "Body copied!", Toast.LENGTH_SHORT).show()
+                },
+                modifier = Modifier.fillMaxWidth(),
+                icon = Icons.Outlined.ContentCopy
+            )
+
+            Spacer(Modifier.height(8.dp))
+
             // Delete button
             GhostButton(
-                text = "Delete Message",
-                onClick = { navController.popBackStack() },
+                text = if (isDeleting) "Deleting…" else "Delete Message",
+                onClick = {
+                    scope.launch {
+                        val savedInbox = prefs.currentInboxOnce()
+                        val ownerToken = savedInbox?.ownerToken.orEmpty()
+                        val inboxId = savedInbox?.id.orEmpty().ifBlank { message.inboxId }
+                        if (ownerToken.isBlank() || inboxId.isBlank()) {
+                            error = "Inbox session missing — open the inbox again."
+                            return@launch
+                        }
+                        isDeleting = true
+                        val authToken = auth.currentUser?.getIdToken(false)?.await()?.token
+                        repo.deleteMessage(inboxId, message.id, ownerToken, authToken)
+                            .onSuccess {
+                                MessageStore.remove(message.id)
+                                navController.popBackStack()
+                            }
+                            .onFailure { error = it.message ?: "Delete failed" }
+                        isDeleting = false
+                    }
+                },
                 modifier = Modifier.fillMaxWidth(),
                 color = Danger,
-                icon = Icons.Outlined.Delete
+                icon = Icons.Outlined.Delete,
+                enabled = !isDeleting
             )
 
             Spacer(Modifier.height(32.dp))

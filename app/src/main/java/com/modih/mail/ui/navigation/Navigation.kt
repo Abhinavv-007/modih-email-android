@@ -19,8 +19,11 @@ import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.navArgument
 import androidx.navigation.compose.*
+import com.modih.mail.ui.screens.admin.AdminLoginScreen
+import com.modih.mail.ui.screens.admin.AdminPanelScreen
 import com.modih.mail.ui.screens.auth.LoginScreen
 import com.modih.mail.ui.screens.auth.SignUpScreen
+import com.modih.mail.ui.screens.dashboard.DashboardScreen
 import com.modih.mail.ui.screens.developer.DeveloperScreen
 import com.modih.mail.ui.screens.docs.PrivacyPolicyScreen
 import com.modih.mail.ui.screens.docs.TermsScreen
@@ -32,10 +35,12 @@ import com.modih.mail.ui.screens.pricing.PricingScreen
 import com.modih.mail.ui.screens.settings.SettingsScreen
 import com.modih.mail.ui.screens.settings.AccountScreen
 import com.modih.mail.ui.screens.settings.AliasManagementScreen
+import com.modih.mail.ui.screens.support.SupportScreen
 import com.modih.mail.ui.theme.*
 
 sealed class Screen(val route: String) {
     data object Home : Screen("home")
+    data object Dashboard : Screen("dashboard")
     data object Inbox : Screen("inbox")
     data object Pricing : Screen("pricing")
     data object Settings : Screen("settings")
@@ -47,6 +52,9 @@ sealed class Screen(val route: String) {
     data object About : Screen("about")
     data object Account : Screen("account")
     data object AliasManagement : Screen("alias_management")
+    data object Support : Screen("support")
+    data object AdminLogin : Screen("admin_login")
+    data object AdminPanel : Screen("admin_panel")
     data object MessageDetail : Screen("message/{messageId}") {
         fun createRoute(messageId: String) = "message/$messageId"
     }
@@ -61,6 +69,7 @@ data class BottomNavItem(
 
 val bottomNavItems = listOf(
     BottomNavItem(Screen.Home, "Home", Icons.Filled.Home, Icons.Outlined.Home),
+    BottomNavItem(Screen.Dashboard, "Dashboard", Icons.Filled.Dashboard, Icons.Outlined.Dashboard),
     BottomNavItem(Screen.Inbox, "Inbox", Icons.Filled.Email, Icons.Outlined.Email),
     BottomNavItem(Screen.Pricing, "Plans", Icons.Filled.Star, Icons.Outlined.Star),
     BottomNavItem(Screen.Settings, "Settings", Icons.Filled.Settings, Icons.Outlined.Settings),
@@ -81,6 +90,7 @@ fun ModihNavHost(
         popExitTransition = { fadeOut(animationSpec = tween(200)) }
     ) {
         composable(Screen.Home.route) { HomeScreen(navController) }
+        composable(Screen.Dashboard.route) { DashboardScreen(navController) }
         composable(Screen.Inbox.route) { InboxScreen(navController) }
         composable(Screen.Pricing.route) { PricingScreen(navController) }
         composable(Screen.Settings.route) { SettingsScreen(navController) }
@@ -92,6 +102,9 @@ fun ModihNavHost(
         composable(Screen.About.route) { AboutScreen(navController) }
         composable(Screen.Account.route) { AccountScreen(navController) }
         composable(Screen.AliasManagement.route) { AliasManagementScreen(navController) }
+        composable(Screen.Support.route) { SupportScreen(navController) }
+        composable(Screen.AdminLogin.route) { AdminLoginScreen(navController) }
+        composable(Screen.AdminPanel.route) { AdminPanelScreen(navController) }
         composable(
             Screen.MessageDetail.route,
             arguments = listOf(navArgument("messageId") { defaultValue = "" })

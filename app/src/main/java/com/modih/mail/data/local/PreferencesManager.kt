@@ -2,9 +2,13 @@ package com.modih.mail.data.local
 
 import android.content.Context
 import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.*
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.util.UUID
 
@@ -24,17 +28,15 @@ class PreferencesManager(private val context: Context) {
         private val USER_UID = stringPreferencesKey("user_uid")
         private val USER_EMAIL = stringPreferencesKey("user_email")
         private val USER_PLAN = stringPreferencesKey("user_plan")
+        private val ADMIN_SECRET = stringPreferencesKey("admin_secret")
     }
 
     suspend fun getBrowserToken(): String {
-        val prefs = context.dataStore.data.map { it[BROWSER_TOKEN] }
-        var token: String? = null
-        prefs.collect { token = it }
-        if (token == null) {
-            token = UUID.randomUUID().toString()
-            context.dataStore.edit { it[BROWSER_TOKEN] = token!! }
-        }
-        return token!!
+        val existing = context.dataStore.data.map { it[BROWSER_TOKEN] }.first()
+        if (!existing.isNullOrBlank()) return existing
+        val token = UUID.randomUUID().toString()
+        context.dataStore.edit { it[BROWSER_TOKEN] = token }
+        return token
     }
 
     suspend fun saveCurrentInbox(id: String, email: String, ownerToken: String, createdAt: Long, expiresAt: Long) {
@@ -70,6 +72,8 @@ class PreferencesManager(private val context: Context) {
         )
     }
 
+    suspend fun currentInboxOnce(): SavedInbox? = currentInboxFlow.first()
+
     suspend fun saveUserPlan(uid: String, email: String, plan: String) {
         context.dataStore.edit { prefs ->
             prefs[USER_UID] = uid
@@ -93,6 +97,21 @@ class PreferencesManager(private val context: Context) {
             email = prefs[USER_EMAIL] ?: "",
             plan = prefs[USER_PLAN] ?: "free"
         )
+    }
+
+    // ─── Admin gate ────────────────────────────────────────────────────────
+    val adminSecretFlow: Flow<String?> = context.dataStore.data.map { prefs ->
+        prefs[ADMIN_SECRET]?.takeIf { it.isNotBlank() }
+    }
+
+    suspend fun adminSecretOnce(): String? = adminSecretFlow.first()
+
+    suspend fun saveAdminSecret(secret: String) {
+        context.dataStore.edit { prefs -> prefs[ADMIN_SECRET] = secret }
+    }
+
+    suspend fun clearAdminSecret() {
+        context.dataStore.edit { prefs -> prefs.remove(ADMIN_SECRET) }
     }
 }
 
