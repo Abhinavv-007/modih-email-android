@@ -1,6 +1,8 @@
 package com.modih.mail.data.repository
 
 import com.modih.mail.data.model.*
+import com.modih.mail.data.network.CaptchaRequiredException
+import com.modih.mail.data.network.NetworkClient
 import com.modih.mail.util.Constants
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -10,24 +12,9 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
-import java.util.concurrent.TimeUnit
-
-/**
- * Single client used by every repository instance. The Cloudflare Pages
- * backend is keep-alive friendly so we want to reuse connections instead
- * of building a new pool per call.
- */
-private val sharedHttpClient: OkHttpClient by lazy {
-    OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(20, TimeUnit.SECONDS)
-        .callTimeout(30, TimeUnit.SECONDS)
-        .retryOnConnectionFailure(true)
-        .build()
-}
 
 class MailRepository {
-    private val client: OkHttpClient = sharedHttpClient
+    private val client: OkHttpClient = NetworkClient.client
     private val jsonMedia = "application/json".toMediaType()
 
     // ──────────────────────────────────────────────────────────────────
@@ -61,6 +48,16 @@ class MailRepository {
             val json = if (responseBody.isBlank()) JSONObject() else JSONObject(responseBody)
 
             if (!response.isSuccessful) {
+                if (response.code == 428 || isCaptchaError(json)) {
+                    val errMeta = json.optJSONObject("error")?.optJSONObject("meta")
+                        ?: json.optJSONObject("meta")
+                    return@withContext Result.failure(
+                        CaptchaRequiredException(
+                            creationsToday = errMeta?.optInt("creations_today", 0) ?: 0,
+                            maxCreations = errMeta?.optInt("max_creations", 0) ?: 0
+                        )
+                    )
+                }
                 return@withContext Result.failure(
                     Exception(parseErrorMessage(json, "Failed to create inbox (${response.code})"))
                 )
@@ -499,6 +496,13 @@ class MailRepository {
             ?: json.optString("error").takeIf { it.isNotBlank() }
             ?: json.optString("message").takeIf { it.isNotBlank() }
             ?: fallback
+    }
+
+    private fun isCaptchaError(json: JSONObject): Boolean {
+        val code = json.optJSONObject("error")?.optString("code")
+            ?: json.optString("code")
+        return code.equals("CAPTCHA_REQUIRED", ignoreCase = true) ||
+            code.equals("CAPTCHA_FAILED", ignoreCase = true)
     }
 
     private fun parseInbox(json: JSONObject): Inbox = Inbox(
