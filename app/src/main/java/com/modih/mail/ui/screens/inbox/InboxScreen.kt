@@ -101,7 +101,10 @@ fun InboxScreen(navController: NavController) {
     LaunchedEffect(currentInbox, showMailView) {
         if (currentInbox != null && showMailView) {
             while (true) {
-                delay(5000)
+                // v1.3: 8s instead of 5s. Same "feels live" UX with 38%
+                // fewer round-trips and recompositions; manual refresh
+                // button covers the "I want it now" case.
+                delay(8000)
                 try {
                     val token = auth.currentUser?.getIdToken(false)?.await()?.token
                     repo.getMessages(currentInbox!!.id, currentInbox!!.ownerToken, token)

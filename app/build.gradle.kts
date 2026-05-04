@@ -13,8 +13,8 @@ android {
         applicationId = "com.modih.mail"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.2.0"
+        versionCode = 4
+        versionName = "1.3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -87,10 +87,6 @@ dependencies {
 
     // Navigation
     implementation("androidx.navigation:navigation-compose:2.8.5")
-
-    // Media3 / ExoPlayer for video background
-    implementation("androidx.media3:media3-exoplayer:1.5.1")
-    implementation("androidx.media3:media3-ui:1.5.1")
 
     // Firebase Auth
     implementation(platform("com.google.firebase:firebase-bom:34.12.0"))
